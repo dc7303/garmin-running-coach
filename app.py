@@ -72,13 +72,24 @@ def start_ollama_server() -> bool:
         return False
 
     try:
-        # Start ollama serve in background
-        subprocess.Popen(
-            ["ollama", "serve"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
+        # Start ollama serve in background (cross-platform)
+        import sys
+        if sys.platform == "win32":
+            # Windows: use CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            # macOS/Linux: use start_new_session
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
         # Wait for server to start
         for _ in range(10):
             time.sleep(1)
