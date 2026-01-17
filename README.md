@@ -27,13 +27,15 @@ A desktop application that fetches your running data from Garmin Connect, visual
 
 ### Download
 
-Download the latest release for your platform from the [Releases](https://github.com/dc7303/garmin-running-coach/releases) page:
+Download the latest release from the [Releases](https://github.com/dc7303/garmin-running-coach/releases) page:
 
-| Platform | File |
-|----------|------|
-| macOS | `GarminRunningCoach-macOS.zip` |
-| Windows | `GarminRunningCoach-windows.zip` |
-| Linux | `GarminRunningCoach-linux.tar.gz` |
+| Platform | File | Status |
+|----------|------|--------|
+| macOS | `GarminRunningCoach-macOS.zip` | ✅ Available |
+| Windows | `GarminRunningCoach-windows.zip` | 🚧 Coming Soon |
+| Linux | `GarminRunningCoach-linux.tar.gz` | 🚧 Coming Soon |
+
+> **Note**: Windows and Linux builds are not yet tested. Contributions welcome!
 
 ### Running the Application
 
