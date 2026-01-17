@@ -6,6 +6,9 @@ visualizes performance metrics, and provides AI coaching feedback.
 """
 
 import os
+import subprocess
+import time
+import shutil
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -18,6 +21,8 @@ from ai_coach import create_ai_coach
 
 # Load environment variables
 load_dotenv()
+
+DEFAULT_OLLAMA_MODEL = "llama3.2"
 
 # Page configuration
 st.set_page_config(
@@ -46,13 +51,57 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def check_ollama_available() -> bool:
-    """Check if Ollama is running and available."""
+def is_ollama_installed() -> bool:
+    """Check if Ollama is installed on the system."""
+    return shutil.which("ollama") is not None
+
+
+def is_ollama_running() -> bool:
+    """Check if Ollama server is running."""
     try:
         import ollama
         ollama.list()
         return True
     except Exception:
+        return False
+
+
+def start_ollama_server() -> bool:
+    """Try to start Ollama server in background."""
+    if not is_ollama_installed():
+        return False
+
+    try:
+        # Start ollama serve in background
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+        # Wait for server to start
+        for _ in range(10):
+            time.sleep(1)
+            if is_ollama_running():
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def pull_ollama_model(model_name: str, progress_placeholder) -> bool:
+    """Pull an Ollama model with progress display."""
+    try:
+        import ollama
+        progress_placeholder.info(f"Downloading {model_name}... This may take a few minutes.")
+
+        # Pull the model
+        ollama.pull(model_name)
+
+        progress_placeholder.success(f"Model {model_name} downloaded successfully!")
+        return True
+    except Exception as e:
+        progress_placeholder.error(f"Failed to download model: {str(e)}")
         return False
 
 
@@ -64,6 +113,24 @@ def get_ollama_models() -> list:
         return [m["name"] for m in models.get("models", [])]
     except Exception:
         return []
+
+
+def ensure_ollama_ready() -> tuple[bool, str]:
+    """
+    Ensure Ollama is ready to use.
+    Returns (success, message).
+    """
+    # Check if installed
+    if not is_ollama_installed():
+        return False, "not_installed"
+
+    # Check if running, try to start if not
+    if not is_ollama_running():
+        if start_ollama_server():
+            return True, "started"
+        return False, "start_failed"
+
+    return True, "running"
 
 
 def init_session_state():
@@ -98,43 +165,67 @@ def login_page():
 
         # AI Backend Selection
         st.markdown("### AI Backend")
-        ollama_available = check_ollama_available()
-        ollama_models = get_ollama_models() if ollama_available else []
+
+        # Check Ollama status
+        ollama_installed = is_ollama_installed()
+        ollama_running = is_ollama_running()
+        ollama_models = get_ollama_models() if ollama_running else []
+
+        # Status display
+        if ollama_installed and ollama_running:
+            status_text = "✓ Ready"
+            status_color = "green"
+        elif ollama_installed:
+            status_text = "○ Installed (not running)"
+            status_color = "orange"
+        else:
+            status_text = "✗ Not installed"
+            status_color = "red"
 
         ai_backend = st.radio(
             "Select AI Backend",
             options=["ollama", "gemini"],
             format_func=lambda x: {
-                "ollama": f"🦙 Ollama (Local) {'✓ Running' if ollama_available else '✗ Not Running'}",
+                "ollama": f"🦙 Ollama (Local, Free) - {status_text}",
                 "gemini": "🌐 Google Gemini (API Key Required)"
             }.get(x),
             horizontal=True
         )
 
         # Ollama settings
-        ollama_model = None
+        ollama_model = DEFAULT_OLLAMA_MODEL
         if ai_backend == "ollama":
-            if ollama_available:
+            if not ollama_installed:
+                st.error("Ollama is not installed.")
+                st.markdown("""
+                **Install Ollama (choose one):**
+                - Download from [ollama.com](https://ollama.com) (Recommended - auto-starts)
+                - Or run: `brew install ollama`
+                """)
+            elif not ollama_running:
+                st.warning("Ollama is installed but not running.")
+                if st.button("🚀 Start Ollama", use_container_width=True):
+                    with st.spinner("Starting Ollama server..."):
+                        if start_ollama_server():
+                            st.success("Ollama started successfully!")
+                            st.rerun()
+                        else:
+                            st.error("Failed to start Ollama. Please start manually: `ollama serve`")
+            else:
+                # Ollama is running
                 if ollama_models:
                     ollama_model = st.selectbox(
-                        "Select Ollama Model",
+                        "Select Model",
                         options=ollama_models,
                         index=0
                     )
                 else:
-                    st.warning("No models found. Run: `ollama pull llama3.2`")
-                    ollama_model = st.text_input(
-                        "Model Name",
-                        value="llama3.2",
-                        help="Enter model name to use"
-                    )
-            else:
-                st.error(
-                    "Ollama is not running. Please start Ollama first:\n"
-                    "1. Install: `brew install ollama`\n"
-                    "2. Start: `ollama serve`\n"
-                    "3. Pull model: `ollama pull llama3.2`"
-                )
+                    st.warning(f"No models installed. Click below to download {DEFAULT_OLLAMA_MODEL}.")
+                    progress_placeholder = st.empty()
+                    if st.button(f"📥 Download {DEFAULT_OLLAMA_MODEL}", use_container_width=True):
+                        if pull_ollama_model(DEFAULT_OLLAMA_MODEL, progress_placeholder):
+                            time.sleep(1)
+                            st.rerun()
 
         st.markdown("### Garmin Credentials")
 
@@ -169,8 +260,10 @@ def login_page():
                     st.error("Please enter your Garmin credentials.")
                 elif ai_backend == "gemini" and not gemini_key:
                     st.error("Please enter your Gemini API key.")
-                elif ai_backend == "ollama" and not ollama_available:
-                    st.error("Ollama is not running. Please start Ollama first.")
+                elif ai_backend == "ollama" and not ollama_running:
+                    st.error("Please start Ollama first using the button above.")
+                elif ai_backend == "ollama" and not ollama_models:
+                    st.error("Please download a model first using the button above.")
                 else:
                     with st.spinner("Connecting to Garmin..."):
                         try:
