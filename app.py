@@ -109,8 +109,12 @@ def get_ollama_models() -> list:
     """Get list of available Ollama models."""
     try:
         import ollama
-        models = ollama.list()
-        return [m["name"] for m in models.get("models", [])]
+        result = ollama.list()
+        # New API: result.models is a list of Model objects with .model attribute
+        if hasattr(result, 'models'):
+            return [m.model for m in result.models]
+        # Fallback for old API
+        return [m["name"] for m in result.get("models", [])]
     except Exception:
         return []
 
