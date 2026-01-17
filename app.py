@@ -66,9 +66,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def get_ollama_path() -> str | None:
+    """Get the path to Ollama executable."""
+    # Check common installation paths first (for packaged app)
+    common_paths = [
+        "/opt/homebrew/bin/ollama",  # Homebrew on Apple Silicon
+        "/usr/local/bin/ollama",      # Homebrew on Intel Mac / manual install
+        "/usr/bin/ollama",            # System install
+    ]
+    for path in common_paths:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    # Fallback to PATH lookup
+    return shutil.which("ollama")
+
+
 def is_ollama_installed() -> bool:
     """Check if Ollama is installed on the system."""
-    return shutil.which("ollama") is not None
+    return get_ollama_path() is not None
 
 
 def is_ollama_running() -> bool:
@@ -83,7 +98,8 @@ def is_ollama_running() -> bool:
 
 def start_ollama_server() -> bool:
     """Try to start Ollama server in background."""
-    if not is_ollama_installed():
+    ollama_path = get_ollama_path()
+    if not ollama_path:
         return False
 
     try:
@@ -92,7 +108,7 @@ def start_ollama_server() -> bool:
         if sys.platform == "win32":
             # Windows: use CREATE_NEW_PROCESS_GROUP
             subprocess.Popen(
-                ["ollama", "serve"],
+                [ollama_path, "serve"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
@@ -100,7 +116,7 @@ def start_ollama_server() -> bool:
         else:
             # macOS/Linux: use start_new_session
             subprocess.Popen(
-                ["ollama", "serve"],
+                [ollama_path, "serve"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
