@@ -175,23 +175,41 @@ Be realistic and base predictions on the actual training data shown.
     def get_custom_advice(self, question: str, context: dict) -> str:
         """Get custom coaching advice for a specific question."""
         context_text = ""
-        if context.get("weekly_distance"):
-            context_text += f"- Weekly running volume: ~{context['weekly_distance']} km\n"
-        if context.get("avg_pace"):
-            context_text += f"- Typical pace: {context['avg_pace']} min/km\n"
+
+        # Data period and summary stats
+        if context.get("data_period"):
+            context_text += f"- Data period: {context['data_period']}\n"
+        if context.get("total_runs"):
+            context_text += f"- Total runs: {context['total_runs']}\n"
+        if context.get("total_distance"):
+            context_text += f"- Total distance: {context['total_distance']} km\n"
         if context.get("runs_per_week"):
             context_text += f"- Runs per week: {context['runs_per_week']}\n"
+        if context.get("avg_pace"):
+            context_text += f"- Average pace: {context['avg_pace']} min/km\n"
+        if context.get("avg_heart_rate"):
+            context_text += f"- Average heart rate: {context['avg_heart_rate']} bpm\n"
+
+        # Recent runs detail
+        recent_runs_text = ""
+        if context.get("recent_runs"):
+            recent_runs_text = "\n**Recent Runs:**\n"
+            for run in context["recent_runs"]:
+                recent_runs_text += f"- {run['date']}: {run['distance']} at {run['pace']}"
+                if run.get('hr') and run['hr'] != "N/A":
+                    recent_runs_text += f" (HR: {run['hr']})"
+                recent_runs_text += "\n"
 
         prompt = f"""You are an experienced running coach. A runner has the following question:
 
 **Runner Profile:**
 {context_text if context_text else "No specific data provided."}
-
+{recent_runs_text}
 **Question:**
 {question}
 
-Please provide helpful, evidence-based coaching advice.
-Keep the response focused and practical (under 300 words).
+Please provide helpful, evidence-based coaching advice based on the runner's actual training data.
+Keep the response focused and practical (under 400 words).
 
 {self._get_language_instruction()}"""
 

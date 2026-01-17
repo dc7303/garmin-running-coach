@@ -659,14 +659,50 @@ def render_ai_analysis_tab():
         )
 
         if st.button("Ask Coach") and question:
-            # Build context from available data
+            # Build comprehensive context from all available data
             context = {}
-            if st.session_state.activities:
-                weekly_dist = sum(
-                    a.get("distance", 0) for a in st.session_state.activities[:7]
-                ) / 1000
-                context["weekly_distance"] = f"{weekly_dist:.1f}"
-                context["runs_per_week"] = min(len(st.session_state.activities), 7)
+            activities = st.session_state.activities
+
+            if activities:
+                # Basic stats
+                total_distance = sum(a.get("distance", 0) for a in activities) / 1000
+                total_runs = len(activities)
+                total_duration = sum(a.get("duration", 0) for a in activities) / 60
+
+                # Average pace
+                avg_pace = total_duration / total_distance if total_distance > 0 else 0
+                pace_min = int(avg_pace)
+                pace_sec = int((avg_pace - pace_min) * 60)
+
+                # Average heart rate
+                hr_list = [a.get("averageHR", 0) for a in activities if a.get("averageHR")]
+                avg_hr = sum(hr_list) / len(hr_list) if hr_list else 0
+
+                # Data period
+                days = DATA_PERIOD_OPTIONS.get(st.session_state.data_period, 30)
+
+                context["data_period"] = st.session_state.data_period
+                context["total_runs"] = total_runs
+                context["total_distance"] = f"{total_distance:.1f}"
+                context["avg_pace"] = f"{pace_min}:{pace_sec:02d}"
+                context["avg_heart_rate"] = f"{avg_hr:.0f}" if avg_hr > 0 else None
+                context["runs_per_week"] = round(total_runs / (days / 7), 1)
+
+                # Recent activities summary
+                recent_runs = []
+                for a in activities[:10]:
+                    dist_km = a.get("distance", 0) / 1000
+                    dur_min = a.get("duration", 0) / 60
+                    pace = dur_min / dist_km if dist_km > 0 else 0
+                    p_min = int(pace)
+                    p_sec = int((pace - p_min) * 60)
+                    recent_runs.append({
+                        "date": a.get("startTimeLocal", "")[:10],
+                        "distance": f"{dist_km:.1f}km",
+                        "pace": f"{p_min}:{p_sec:02d}/km",
+                        "hr": a.get("averageHR", "N/A")
+                    })
+                context["recent_runs"] = recent_runs
 
             with st.spinner("Getting advice..."):
                 advice = st.session_state.ai_coach.get_custom_advice(question, context)
