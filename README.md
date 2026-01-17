@@ -41,11 +41,30 @@ Download the latest release from the [Releases](https://github.com/dc7303/garmin
 
 1. Extract the downloaded archive
 2. Run the application:
-   - **macOS**: Double-click `GarminRunningCoach.app`
+   - **macOS**: See macOS installation below
    - **Windows**: Double-click `GarminRunningCoach.exe`
    - **Linux**: Run `./GarminRunningCoach`
 3. Your browser will open automatically
 4. Enter your Garmin credentials and select an AI backend
+
+#### macOS Installation
+
+Since the app is not signed with an Apple Developer certificate, macOS Gatekeeper will block it. To open:
+
+**Method 1 (Recommended):**
+1. Move `GarminRunningCoach.app` to Applications folder
+2. Open **System Settings** > **Privacy & Security**
+3. Scroll down and click **"Open Anyway"** next to the blocked app message
+
+**Method 2:**
+1. Right-click (or Control-click) on `GarminRunningCoach.app`
+2. Select **"Open"** from the context menu
+3. Click **"Open"** in the dialog that appears
+
+**Method 3 (Terminal):**
+```bash
+xattr -cr /Applications/GarminRunningCoach.app
+```
 
 ### AI Backend Options
 
