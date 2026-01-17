@@ -5,8 +5,7 @@ This module provides AI-powered running coaching feedback by analyzing
 running data and generating personalized recommendations.
 """
 
-import google.generativeai as genai
-from typing import Optional
+from google import genai
 
 
 class AICoach:
@@ -20,8 +19,8 @@ class AICoach:
             api_key: Google Gemini API key
         """
         self.api_key = api_key
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = "gemini-2.0-flash"
 
     def _build_activity_prompt(self, activity: dict) -> str:
         """
@@ -130,7 +129,10 @@ Keep the response practical and motivating (under 400 words).
         prompt = self._build_activity_prompt(activity)
 
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Unable to generate feedback: {str(e)}"
@@ -153,7 +155,10 @@ Keep the response practical and motivating (under 400 words).
         prompt = self._build_weekly_prompt(weekly_stats, activities)
 
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Unable to generate analysis: {str(e)}"
@@ -213,7 +218,10 @@ Be realistic and base predictions on the actual training data shown.
 """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Unable to generate prediction: {str(e)}"
@@ -251,7 +259,10 @@ Keep the response focused and practical (under 300 words).
 """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Unable to generate advice: {str(e)}"
