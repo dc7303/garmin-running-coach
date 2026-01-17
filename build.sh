@@ -6,17 +6,31 @@ set -e
 echo "=== Garmin Running AI Coach - Build Script ==="
 echo ""
 
-# Check Python
-if ! command -v python3 &> /dev/null; then
+# Use Python 3.11 from Homebrew if available (has framework support)
+if [ -f "/opt/homebrew/bin/python3.11" ]; then
+    PYTHON="/opt/homebrew/bin/python3.11"
+elif command -v python3.11 &> /dev/null; then
+    PYTHON="python3.11"
+elif command -v python3 &> /dev/null; then
+    PYTHON="python3"
+else
     echo "Error: Python3 is required but not installed."
     exit 1
 fi
 
-# Create virtual environment if not exists
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+echo "Using Python: $PYTHON"
+$PYTHON --version
+echo ""
+
+# Remove old virtual environment if exists
+if [ -d "venv" ]; then
+    echo "Removing old virtual environment..."
+    rm -rf venv
 fi
+
+# Create virtual environment
+echo "Creating virtual environment..."
+$PYTHON -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate
@@ -49,7 +63,7 @@ fi
 echo ""
 echo "To create a distributable archive:"
 if [ "$(uname)" == "Darwin" ]; then
-    echo "  zip -r GarminRunningCoach-macOS.zip dist/GarminRunningCoach.app"
+    echo "  cd dist && zip -r GarminRunningCoach-macOS.zip GarminRunningCoach.app"
 else
     echo "  tar -czvf GarminRunningCoach-linux.tar.gz -C dist GarminRunningCoach"
 fi

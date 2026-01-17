@@ -8,6 +8,7 @@ It starts the Streamlit server and opens the browser automatically.
 import sys
 import os
 from pathlib import Path
+import tempfile
 
 
 def get_app_path():
@@ -22,11 +23,30 @@ def get_app_path():
     return str(base_path / "app.py")
 
 
+def setup_streamlit_config():
+    """Create Streamlit config to skip email prompt and other settings."""
+    # Use user's home directory for config
+    home = Path.home()
+    config_dir = home / ".streamlit"
+    config_dir.mkdir(exist_ok=True)
+
+    # Create credentials file to skip email prompt
+    credentials_file = config_dir / "credentials.toml"
+    if not credentials_file.exists():
+        credentials_file.write_text('[general]\nemail = ""\n')
+
+    return str(config_dir)
+
+
 def main():
     """Launch the Streamlit application."""
-    # Set environment to avoid some Streamlit warnings
-    os.environ["STREAMLIT_SERVER_HEADLESS"] = "false"
+    # Setup Streamlit config
+    setup_streamlit_config()
+
+    # Set environment variables for Streamlit
     os.environ["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
+    os.environ["STREAMLIT_GLOBAL_DEVELOPMENT_MODE"] = "false"
+    os.environ["STREAMLIT_SERVER_HEADLESS"] = "false"
 
     # Import streamlit CLI
     from streamlit.web import cli as stcli
@@ -38,10 +58,8 @@ def main():
         "streamlit",
         "run",
         app_path,
-        "--server.port=8501",
-        "--server.headless=false",
+        "--global.developmentMode=false",
         "--browser.gatherUsageStats=false",
-        "--theme.base=light",
     ]
 
     # Run streamlit

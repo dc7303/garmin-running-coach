@@ -35,10 +35,12 @@ datas += altair_datas
 binaries += altair_binaries
 hiddenimports += altair_hiddenimports
 
-# Google Generative AI
-datas += collect_data_files('google.generativeai')
-hiddenimports += collect_submodules('google.generativeai')
-hiddenimports += collect_submodules('google.ai')
+# Google GenAI (new SDK)
+try:
+    datas += collect_data_files('google.genai')
+    hiddenimports += collect_submodules('google.genai')
+except Exception:
+    pass
 
 # Additional hidden imports
 hiddenimports += [
@@ -70,6 +72,7 @@ hiddenimports += [
     'idna',
     'sniffio',
     'h11',
+    'google.genai',
 ]
 
 # Add application files
