@@ -197,11 +197,10 @@ def login_page():
         if ai_backend == "ollama":
             if not ollama_installed:
                 st.error("Ollama is not installed.")
-                st.markdown("""
-                **Install Ollama (choose one):**
-                - Download from [ollama.com](https://ollama.com) (Recommended - auto-starts)
-                - Or run: `brew install ollama`
-                """)
+                st.markdown("**Install Ollama (choose one):**")
+                st.markdown("1. Download from [ollama.com](https://ollama.com) (Recommended)")
+                st.markdown("2. Or install via Homebrew:")
+                st.code("brew install ollama", language="bash")
             elif not ollama_running:
                 st.warning("Ollama is installed but not running.")
                 if st.button("🚀 Start Ollama", use_container_width=True):
