@@ -2,7 +2,7 @@
 Garmin Running AI Coach Dashboard
 
 A Streamlit web application that fetches running data from Garmin Connect,
-visualizes performance metrics, and provides AI coaching feedback via Google Gemini.
+visualizes performance metrics, and provides AI coaching feedback.
 """
 
 import os
@@ -14,7 +14,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from garmin_client import GarminClient, format_pace, format_duration
-from ai_coach import AICoach
+from ai_coach import create_ai_coach
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +46,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def check_ollama_available() -> bool:
+    """Check if Ollama is running and available."""
+    try:
+        import ollama
+        ollama.list()
+        return True
+    except Exception:
+        return False
+
+
+def get_ollama_models() -> list:
+    """Get list of available Ollama models."""
+    try:
+        import ollama
+        models = ollama.list()
+        return [m["name"] for m in models.get("models", [])]
+    except Exception:
+        return []
+
+
 def init_session_state():
     """Initialize session state variables."""
     if "logged_in" not in st.session_state:
@@ -58,6 +78,8 @@ def init_session_state():
         st.session_state.activities = []
     if "selected_activity" not in st.session_state:
         st.session_state.selected_activity = None
+    if "ai_backend" not in st.session_state:
+        st.session_state.ai_backend = "ollama"
 
 
 def login_page():
@@ -74,6 +96,48 @@ def login_page():
         env_email = os.getenv("GARMIN_EMAIL", "")
         env_password = os.getenv("GARMIN_PASSWORD", "")
 
+        # AI Backend Selection
+        st.markdown("### AI Backend")
+        ollama_available = check_ollama_available()
+        ollama_models = get_ollama_models() if ollama_available else []
+
+        ai_backend = st.radio(
+            "Select AI Backend",
+            options=["ollama", "gemini"],
+            format_func=lambda x: {
+                "ollama": f"🦙 Ollama (Local) {'✓ Running' if ollama_available else '✗ Not Running'}",
+                "gemini": "🌐 Google Gemini (API Key Required)"
+            }.get(x),
+            horizontal=True
+        )
+
+        # Ollama settings
+        ollama_model = None
+        if ai_backend == "ollama":
+            if ollama_available:
+                if ollama_models:
+                    ollama_model = st.selectbox(
+                        "Select Ollama Model",
+                        options=ollama_models,
+                        index=0
+                    )
+                else:
+                    st.warning("No models found. Run: `ollama pull llama3.2`")
+                    ollama_model = st.text_input(
+                        "Model Name",
+                        value="llama3.2",
+                        help="Enter model name to use"
+                    )
+            else:
+                st.error(
+                    "Ollama is not running. Please start Ollama first:\n"
+                    "1. Install: `brew install ollama`\n"
+                    "2. Start: `ollama serve`\n"
+                    "3. Pull model: `ollama pull llama3.2`"
+                )
+
+        st.markdown("### Garmin Credentials")
+
         with st.form("login_form"):
             email = st.text_input(
                 "Garmin Email",
@@ -87,28 +151,46 @@ def login_page():
                 placeholder="Your Garmin password"
             )
 
-            gemini_key = st.text_input(
-                "Gemini API Key",
-                type="password",
-                value=os.getenv("GEMINI_API_KEY", ""),
-                placeholder="Your Gemini API key",
-                help="Get your free API key at https://aistudio.google.com/app/apikey"
-            )
+            # Gemini API Key (only shown for Gemini backend)
+            gemini_key = ""
+            if ai_backend == "gemini":
+                gemini_key = st.text_input(
+                    "Gemini API Key",
+                    type="password",
+                    value=os.getenv("GEMINI_API_KEY", ""),
+                    placeholder="Your Gemini API key",
+                    help="Get your free API key at https://aistudio.google.com/app/apikey"
+                )
 
             submitted = st.form_submit_button("Login", use_container_width=True)
 
             if submitted:
                 if not email or not password:
                     st.error("Please enter your Garmin credentials.")
-                elif not gemini_key:
+                elif ai_backend == "gemini" and not gemini_key:
                     st.error("Please enter your Gemini API key.")
+                elif ai_backend == "ollama" and not ollama_available:
+                    st.error("Ollama is not running. Please start Ollama first.")
                 else:
                     with st.spinner("Connecting to Garmin..."):
                         try:
                             client = GarminClient(email, password)
                             client.login()
                             st.session_state.garmin_client = client
-                            st.session_state.ai_coach = AICoach(gemini_key)
+
+                            # Create AI coach based on selected backend
+                            if ai_backend == "ollama":
+                                st.session_state.ai_coach = create_ai_coach(
+                                    backend="ollama",
+                                    model=ollama_model
+                                )
+                            else:
+                                st.session_state.ai_coach = create_ai_coach(
+                                    backend="gemini",
+                                    api_key=gemini_key
+                                )
+
+                            st.session_state.ai_backend = ai_backend
                             st.session_state.logged_in = True
                             st.success("Login successful!")
                             st.rerun()
@@ -282,7 +364,7 @@ def render_activity_detail(activity: dict):
             feedback = st.session_state.ai_coach.get_activity_feedback(activity)
             st.markdown(feedback)
     else:
-        st.warning("AI Coach not available. Please check your Gemini API key.")
+        st.warning("AI Coach not available.")
 
 
 def render_statistics_tab():
@@ -439,6 +521,10 @@ def dashboard():
         st.title("🏃 Running Coach")
         st.divider()
 
+        # Show current AI backend
+        backend_name = "🦙 Ollama" if st.session_state.ai_backend == "ollama" else "🌐 Gemini"
+        st.caption(f"AI: {backend_name}")
+
         if st.button("🔄 Refresh Data"):
             st.session_state.activities = []
             st.rerun()
@@ -452,7 +538,7 @@ def dashboard():
             st.rerun()
 
         st.divider()
-        st.caption("Powered by Google Gemini AI")
+        st.caption("Powered by Local AI (Ollama) or Google Gemini")
 
     # Load activities if not cached
     if not st.session_state.activities:

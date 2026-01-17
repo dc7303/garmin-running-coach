@@ -42,6 +42,12 @@ try:
 except Exception:
     pass
 
+# Ollama
+try:
+    hiddenimports += collect_submodules('ollama')
+except Exception:
+    pass
+
 # Additional hidden imports
 hiddenimports += [
     'garminconnect',
@@ -73,6 +79,7 @@ hiddenimports += [
     'sniffio',
     'h11',
     'google.genai',
+    'ollama',
 ]
 
 # Add application files
