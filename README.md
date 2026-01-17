@@ -1,6 +1,8 @@
 # Garmin Running AI Coach
 
-A web application that fetches running data from Garmin Connect, visualizes performance metrics, and provides AI-powered coaching feedback using Google Gemini.
+A desktop application that fetches your running data from Garmin Connect, visualizes performance metrics, and provides AI-powered coaching feedback.
+
+![Login Page](images/login_image.png)
 
 ## Features
 
@@ -11,76 +13,101 @@ A web application that fetches running data from Garmin Connect, visualizes perf
 - **Training Analysis**: AI-powered analysis of your training patterns
 - **Race Predictions**: Estimate race times based on your training data
 - **Ask the Coach**: Get answers to running-related questions
+- **Multi-language Support**: English and Korean
 
-## Download (For Users)
+## Screenshots
 
-Download the latest release for your platform:
+| Workout List | Statistics | AI Coach |
+|:---:|:---:|:---:|
+| ![Workout List](images/workout_list.png) | ![Statistics](images/statistics.png) | ![AI Support](images/ai_support.png) |
 
-| Platform | Download |
-|----------|----------|
-| Windows | `GarminRunningCoach-windows.zip` |
+---
+
+## For Users
+
+### Download
+
+Download the latest release for your platform from the [Releases](https://github.com/dc7303/garmin-running-coach/releases) page:
+
+| Platform | File |
+|----------|------|
 | macOS | `GarminRunningCoach-macOS.zip` |
+| Windows | `GarminRunningCoach-windows.zip` |
 | Linux | `GarminRunningCoach-linux.tar.gz` |
 
 ### Running the Application
 
 1. Extract the downloaded archive
 2. Run the application:
-   - **Windows**: Double-click `GarminRunningCoach.exe`
    - **macOS**: Double-click `GarminRunningCoach.app`
+   - **Windows**: Double-click `GarminRunningCoach.exe`
    - **Linux**: Run `./GarminRunningCoach`
-3. Your browser will open automatically at `http://localhost:8501`
-4. Enter your Garmin credentials and Gemini API key
+3. Your browser will open automatically
+4. Enter your Garmin credentials and select an AI backend
 
-### Getting a Gemini API Key
+### AI Backend Options
+
+You can choose between two AI backends:
+
+#### Option 1: Ollama (Recommended - Free & Local)
+
+Ollama runs AI models locally on your computer. No API key required, no usage limits.
+
+1. Install Ollama from [ollama.com](https://ollama.com) or via Homebrew:
+   ```bash
+   brew install ollama
+   ```
+2. The app will guide you to start Ollama and download a model
+
+#### Option 2: Google Gemini (Cloud API)
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in with your Google account
 3. Click "Create API Key"
 4. Copy the key and paste it in the app
 
-The free tier allows 60 requests per minute, which is more than enough for personal use.
+> **Note**: Free tier has rate limits (15 requests/min, 1,500 requests/day)
 
 ---
 
-## Development Setup
+## For Developers
 
 ### Prerequisites
 
 - Python 3.9 or higher
 - Garmin Connect account
-- Google Gemini API key (free tier available)
+- Ollama or Google Gemini API key
 
 ### Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/garmin-running-coach.git
-cd garmin-running-coach
-```
+   ```bash
+   git clone https://github.com/dc7303/garmin-running-coach.git
+   cd garmin-running-coach
+   ```
 
-2. Create a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+2. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
 3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-4. Set up environment variables (optional):
-```bash
-cp .env.example .env
-```
+4. (Optional) Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
 
-Edit `.env` and add your credentials:
-```
-GARMIN_EMAIL=your_garmin_email@example.com
-GARMIN_PASSWORD=your_garmin_password
-GEMINI_API_KEY=your_gemini_api_key
-```
+   Edit `.env`:
+   ```
+   GARMIN_EMAIL=your_garmin_email@example.com
+   GARMIN_PASSWORD=your_garmin_password
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
 
 ### Running in Development
 
@@ -88,66 +115,39 @@ GEMINI_API_KEY=your_gemini_api_key
 streamlit run app.py
 ```
 
-The application will open in your default web browser at `http://localhost:8501`.
+The application will open at `http://localhost:8501`.
 
----
+### Building Executable
 
-## Building Executable
+Install build dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
 
-To build a standalone executable that can be distributed to users:
-
-### macOS / Linux
-
+#### macOS / Linux
 ```bash
 ./build.sh
 ```
+Output: `dist/GarminRunningCoach.app` (macOS) or `dist/GarminRunningCoach/` (Linux)
 
-Output:
-- macOS: `dist/GarminRunningCoach.app`
-- Linux: `dist/GarminRunningCoach/GarminRunningCoach`
-
-### Windows
-
+#### Windows
 ```cmd
 build.bat
 ```
-
 Output: `dist\GarminRunningCoach\GarminRunningCoach.exe`
 
-### Creating Distributable Archives
+#### Creating Distributable Archives
 
-**macOS:**
 ```bash
+# macOS
 cd dist && zip -r GarminRunningCoach-macOS.zip GarminRunningCoach.app
-```
 
-**Linux:**
-```bash
+# Linux
 tar -czvf GarminRunningCoach-linux.tar.gz -C dist GarminRunningCoach
+
+# Windows (PowerShell)
+Compress-Archive -Path dist\GarminRunningCoach -DestinationPath GarminRunningCoach-windows.zip
 ```
-
-**Windows:**
-```
-Compress dist\GarminRunningCoach folder to GarminRunningCoach-windows.zip
-```
-
----
-
-## Usage Guide
-
-### Login
-Enter your Garmin Connect credentials and Gemini API key on the login page.
-
-### Dashboard
-- View summary metrics of your recent runs
-- Click on any activity to see detailed analysis and AI feedback
-- Use the tabs to switch between Dashboard, Statistics, and AI Analysis
-
-### AI Features
-- **Activity Feedback**: Get AI coaching feedback on individual runs
-- **Weekly Analysis**: Analyze your training patterns over the past weeks
-- **Race Prediction**: Get estimated race times for 5K, 10K, Half Marathon, or Marathon
-- **Ask Coach**: Ask any running-related question
 
 ---
 
@@ -156,27 +156,29 @@ Enter your Garmin Connect credentials and Gemini API key on the login page.
 ```
 garmin-running-coach/
 ├── app.py                 # Streamlit main application
-├── garmin_client.py       # Garmin Connect data fetching module
-├── ai_coach.py            # Google Gemini AI coaching module
+├── garmin_client.py       # Garmin Connect data fetching
+├── ai_coach.py            # AI coaching module (Ollama & Gemini)
 ├── launcher.py            # PyInstaller entry point
 ├── garmin_coach.spec      # PyInstaller configuration
-├── build.sh               # Build script for macOS/Linux
-├── build.bat              # Build script for Windows
+├── build.sh               # Build script (macOS/Linux)
+├── build.bat              # Build script (Windows)
 ├── requirements.txt       # Runtime dependencies
 ├── requirements-dev.txt   # Development dependencies
-├── .env.example           # Environment variables template
-├── .gitignore             # Git ignore file
-└── README.md              # This file
+└── README.md
 ```
 
 ## Tech Stack
 
 - **Frontend**: Streamlit
-- **Data Fetching**: garminconnect library
-- **AI**: Google Gemini API (gemini-1.5-flash model)
+- **Data Source**: Garmin Connect (via garminconnect library)
+- **AI Backends**:
+  - Ollama (local LLM - llama3.2, etc.)
+  - Google Gemini API (gemini-2.0-flash)
 - **Charts**: Plotly
 - **Data Processing**: Pandas
 - **Packaging**: PyInstaller
+
+---
 
 ## Contributing
 
@@ -190,10 +192,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Privacy & Security
 
 - Your Garmin credentials are **only used locally** to authenticate with Garmin Connect
-- No data is stored or transmitted to any third-party servers (except Garmin and Google Gemini API)
-- When using the standalone executable, all processing happens on your computer
+- When using Ollama, all AI processing happens locally on your computer
+- When using Gemini, only running data summaries are sent to Google's API
+- No data is stored or transmitted to any other third-party servers

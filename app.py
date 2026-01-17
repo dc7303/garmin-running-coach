@@ -13,7 +13,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from garmin_client import GarminClient, format_pace, format_duration
@@ -23,6 +23,21 @@ from ai_coach import create_ai_coach
 load_dotenv()
 
 DEFAULT_OLLAMA_MODEL = "llama3.2"
+
+# Language options
+LANGUAGE_OPTIONS = {
+    "en": "🇺🇸 English",
+    "ko": "🇰🇷 한국어"
+}
+
+# Data period options (label -> days)
+DATA_PERIOD_OPTIONS = {
+    "1 week": 7,
+    "1 month": 30,
+    "2 months": 60,
+    "3 months": 90,
+    "6 months": 180
+}
 
 # Page configuration
 st.set_page_config(
@@ -162,6 +177,10 @@ def init_session_state():
         st.session_state.selected_activity = None
     if "ai_backend" not in st.session_state:
         st.session_state.ai_backend = "ollama"
+    if "language" not in st.session_state:
+        st.session_state.language = "en"
+    if "data_period" not in st.session_state:
+        st.session_state.data_period = "1 month"
 
 
 def login_page():
@@ -241,9 +260,18 @@ def login_page():
                             time.sleep(1)
                             st.rerun()
 
+        # Language Selection
+        st.markdown("### Language")
+        language = st.selectbox(
+            "AI Feedback Language",
+            options=list(LANGUAGE_OPTIONS.keys()),
+            format_func=lambda x: LANGUAGE_OPTIONS[x],
+            index=0
+        )
+
         st.markdown("### Garmin Credentials")
 
-        with st.form("login_form"):
+        with st.form(f"login_form_{ai_backend}"):
             email = st.text_input(
                 "Garmin Email",
                 value=env_email,
@@ -289,15 +317,18 @@ def login_page():
                             if ai_backend == "ollama":
                                 st.session_state.ai_coach = create_ai_coach(
                                     backend="ollama",
-                                    model=ollama_model
+                                    model=ollama_model,
+                                    language=language
                                 )
                             else:
                                 st.session_state.ai_coach = create_ai_coach(
                                     backend="gemini",
-                                    api_key=gemini_key
+                                    api_key=gemini_key,
+                                    language=language
                                 )
 
                             st.session_state.ai_backend = ai_backend
+                            st.session_state.language = language
                             st.session_state.logged_in = True
                             st.success("Login successful!")
                             st.rerun()
@@ -423,7 +454,7 @@ def render_activity_detail(activity: dict):
                 values="Minutes",
                 names="Zone",
                 title="Estimated Time in HR Zones",
-                color_discrete_sequence=px.colors.sequential.RdYlGn[::-1]
+                color_discrete_sequence=px.colors.diverging.RdYlGn[::-1]
             )
             fig_hr.update_layout(height=300)
             st.plotly_chart(fig_hr, use_container_width=True)
@@ -482,9 +513,14 @@ def render_statistics_tab():
         st.warning("Please login first.")
         return
 
+    # Calculate weeks/months based on selected data period
+    days = DATA_PERIOD_OPTIONS.get(st.session_state.data_period, 30)
+    weeks = max(1, days // 7)
+    months = max(1, days // 30)
+
     with st.spinner("Loading statistics..."):
-        weekly_stats = st.session_state.garmin_client.get_weekly_stats(8)
-        monthly_stats = st.session_state.garmin_client.get_monthly_stats(6)
+        weekly_stats = st.session_state.garmin_client.get_weekly_stats(weeks)
+        monthly_stats = st.session_state.garmin_client.get_monthly_stats(months)
 
     col1, col2 = st.columns(2)
 
@@ -632,6 +668,35 @@ def dashboard():
         backend_name = "🦙 Ollama" if st.session_state.ai_backend == "ollama" else "🌐 Gemini"
         st.caption(f"AI: {backend_name}")
 
+        # Language selector
+        current_lang_idx = list(LANGUAGE_OPTIONS.keys()).index(st.session_state.language)
+        new_language = st.selectbox(
+            "AI Language",
+            options=list(LANGUAGE_OPTIONS.keys()),
+            format_func=lambda x: LANGUAGE_OPTIONS[x],
+            index=current_lang_idx,
+            key="sidebar_language"
+        )
+        if new_language != st.session_state.language:
+            st.session_state.language = new_language
+            if st.session_state.ai_coach:
+                st.session_state.ai_coach.set_language(new_language)
+
+        # Data period selector
+        current_period_idx = list(DATA_PERIOD_OPTIONS.keys()).index(st.session_state.data_period)
+        new_period = st.selectbox(
+            "Data Period",
+            options=list(DATA_PERIOD_OPTIONS.keys()),
+            index=current_period_idx,
+            key="sidebar_period"
+        )
+        if new_period != st.session_state.data_period:
+            st.session_state.data_period = new_period
+            st.session_state.activities = []  # Clear to reload with new period
+            st.rerun()
+
+        st.divider()
+
         if st.button("🔄 Refresh Data"):
             st.session_state.activities = []
             st.rerun()
@@ -647,13 +712,29 @@ def dashboard():
         st.divider()
         st.caption("Powered by Local AI (Ollama) or Google Gemini")
 
+        st.divider()
+        if st.button("⏻ Quit App", use_container_width=True):
+            st.write("Shutting down...")
+            os._exit(0)
+
     # Load activities if not cached
     if not st.session_state.activities:
         with st.spinner("Loading running activities..."):
             try:
-                st.session_state.activities = (
-                    st.session_state.garmin_client.get_running_activities(20)
+                # Calculate activity limit based on selected data period
+                days = DATA_PERIOD_OPTIONS.get(st.session_state.data_period, 30)
+                activity_limit = max(20, days)  # At least 20, or days count
+                all_activities = st.session_state.garmin_client.get_running_activities(
+                    activity_limit
                 )
+                # Filter by date range
+                cutoff_date = datetime.now() - timedelta(days=days)
+                st.session_state.activities = [
+                    a for a in all_activities
+                    if datetime.fromisoformat(
+                        a.get("startTimeLocal", "2000-01-01").replace("Z", "")
+                    ) >= cutoff_date
+                ]
             except Exception as e:
                 st.error(f"Error loading activities: {str(e)}")
                 return

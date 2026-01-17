@@ -16,6 +16,11 @@ def get_app_path():
     if getattr(sys, 'frozen', False):
         # Running as packaged executable
         base_path = Path(sys._MEIPASS)
+        # Set SSL certificate path for packaged app
+        cert_path = base_path / "certifi" / "cacert.pem"
+        if cert_path.exists():
+            os.environ["SSL_CERT_FILE"] = str(cert_path)
+            os.environ["REQUESTS_CA_BUNDLE"] = str(cert_path)
     else:
         # Running in development
         base_path = Path(__file__).parent
@@ -60,6 +65,8 @@ def main():
         app_path,
         "--global.developmentMode=false",
         "--browser.gatherUsageStats=false",
+        "--server.runOnSave=false",
+        "--client.toolbarMode=minimal",
     ]
 
     # Run streamlit

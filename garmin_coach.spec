@@ -17,6 +17,10 @@ datas = []
 hiddenimports = []
 binaries = []
 
+# Include certifi certificate bundle for SSL
+import certifi
+datas += [(certifi.where(), 'certifi')]
+
 # Streamlit requires many data files and submodules
 streamlit_datas, streamlit_binaries, streamlit_hiddenimports = collect_all('streamlit')
 datas += streamlit_datas

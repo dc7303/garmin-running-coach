@@ -8,9 +8,22 @@ running data and generating personalized recommendations.
 from abc import ABC, abstractmethod
 from typing import Optional
 
+LANGUAGE_INSTRUCTIONS = {
+    "en": "Please respond in English.",
+    "ko": "한국어로 답변해 주세요."
+}
+
 
 class BaseAICoach(ABC):
     """Abstract base class for AI coaches."""
+
+    def __init__(self, language: str = "en"):
+        """Initialize with language setting."""
+        self.language = language
+
+    def _get_language_instruction(self) -> str:
+        """Get the language instruction for prompts."""
+        return LANGUAGE_INSTRUCTIONS.get(self.language, LANGUAGE_INSTRUCTIONS["en"])
 
     @abstractmethod
     def generate(self, prompt: str) -> str:
@@ -45,7 +58,9 @@ Please provide:
 4. **Recovery Recommendation**: Suggested recovery based on intensity
 5. **Training Tip**: One specific tip to improve
 
-Keep the response concise and actionable (under 300 words)."""
+Keep the response concise and actionable (under 300 words).
+
+{self._get_language_instruction()}"""
         return prompt
 
     def _build_weekly_prompt(self, weekly_stats: list, activities: list) -> str:
@@ -86,7 +101,9 @@ Please provide:
 4. **Recommended Focus**: What should this runner focus on next week?
 5. **Suggested Workout**: One specific workout recommendation
 
-Keep the response practical and motivating (under 400 words)."""
+Keep the response practical and motivating (under 400 words).
+
+{self._get_language_instruction()}"""
         return prompt
 
     def get_activity_feedback(self, activity: dict) -> str:
@@ -146,7 +163,9 @@ Please provide:
 4. **Race Day Tips**: 2-3 specific tips for race day
 5. **Training Gap**: What training might help improve the prediction?
 
-Be realistic and base predictions on the actual training data shown."""
+Be realistic and base predictions on the actual training data shown.
+
+{self._get_language_instruction()}"""
 
         try:
             return self.generate(prompt)
@@ -172,24 +191,32 @@ Be realistic and base predictions on the actual training data shown."""
 {question}
 
 Please provide helpful, evidence-based coaching advice.
-Keep the response focused and practical (under 300 words)."""
+Keep the response focused and practical (under 300 words).
+
+{self._get_language_instruction()}"""
 
         try:
             return self.generate(prompt)
         except Exception as e:
             return f"Unable to generate advice: {str(e)}"
 
+    def set_language(self, language: str):
+        """Update the language setting."""
+        self.language = language
+
 
 class OllamaCoach(BaseAICoach):
     """AI coach using Ollama (local LLM)."""
 
-    def __init__(self, model: str = "llama3.2"):
+    def __init__(self, model: str = "llama3.2", language: str = "en"):
         """
         Initialize Ollama coach.
 
         Args:
             model: Ollama model name (e.g., llama3.2, gemma2, mistral)
+            language: Response language ("en" or "ko")
         """
+        super().__init__(language=language)
         self.model = model
         import ollama
         self._client = ollama
@@ -203,14 +230,16 @@ class OllamaCoach(BaseAICoach):
 class GeminiCoach(BaseAICoach):
     """AI coach using Google Gemini API."""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash", language: str = "en"):
         """
         Initialize Gemini coach.
 
         Args:
             api_key: Google Gemini API key
             model: Gemini model name
+            language: Response language ("en" or "ko")
         """
+        super().__init__(language=language)
         self.api_key = api_key
         self.model_name = model
         from google import genai
@@ -228,7 +257,8 @@ class GeminiCoach(BaseAICoach):
 def create_ai_coach(
     backend: str = "ollama",
     api_key: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    language: str = "en"
 ) -> BaseAICoach:
     """
     Factory function to create an AI coach.
@@ -237,15 +267,16 @@ def create_ai_coach(
         backend: "ollama" or "gemini"
         api_key: API key (required for Gemini)
         model: Model name (optional, uses default if not specified)
+        language: Response language ("en" for English, "ko" for Korean)
 
     Returns:
         AI coach instance
     """
     if backend == "ollama":
-        return OllamaCoach(model=model or "llama3.2")
+        return OllamaCoach(model=model or "llama3.2", language=language)
     elif backend == "gemini":
         if not api_key:
             raise ValueError("API key required for Gemini backend")
-        return GeminiCoach(api_key=api_key, model=model or "gemini-2.0-flash")
+        return GeminiCoach(api_key=api_key, model=model or "gemini-2.0-flash", language=language)
     else:
         raise ValueError(f"Unknown backend: {backend}")
