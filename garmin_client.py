@@ -138,6 +138,44 @@ class GarminClient:
         except Exception:
             return []
 
+    def get_activity_hr_zones(self, activity_id: int) -> list:
+        """
+        Get heart rate zone data for an activity.
+
+        Args:
+            activity_id: The Garmin activity ID
+
+        Returns:
+            List of HR zone dictionaries with time spent in each zone
+        """
+        if not self.is_logged_in:
+            raise RuntimeError("Not logged in. Call login() first.")
+
+        try:
+            hr_data = self.client.get_activity_hr_in_timezones(activity_id)
+            return hr_data
+        except Exception:
+            return []
+
+    def get_activity_weather(self, activity_id: int) -> dict:
+        """
+        Get weather data for an activity.
+
+        Args:
+            activity_id: The Garmin activity ID
+
+        Returns:
+            Dictionary with weather information
+        """
+        if not self.is_logged_in:
+            raise RuntimeError("Not logged in. Call login() first.")
+
+        try:
+            weather = self.client.get_activity_weather(activity_id)
+            return weather
+        except Exception:
+            return {}
+
     def get_weekly_stats(self, weeks: int = 4) -> list:
         """
         Calculate weekly running statistics.

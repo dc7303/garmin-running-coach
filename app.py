@@ -428,9 +428,21 @@ def render_activity_detail(activity: dict):
         st.session_state.selected_activity = None
         st.rerun()
 
+    activity_id = activity.get("activityId")
     distance_km = activity.get("distance", 0) / 1000
     duration_sec = activity.get("duration", 0)
     avg_pace = (duration_sec / 60) / distance_km if distance_km > 0 else 0
+
+    # Fetch additional data
+    splits_data = []
+    hr_zones_data = []
+    weather_data = {}
+
+    if st.session_state.garmin_client and activity_id:
+        with st.spinner("Loading activity details..."):
+            splits_data = st.session_state.garmin_client.get_activity_splits(activity_id)
+            hr_zones_data = st.session_state.garmin_client.get_activity_hr_zones(activity_id)
+            weather_data = st.session_state.garmin_client.get_activity_weather(activity_id)
 
     # Metrics row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -446,67 +458,175 @@ def render_activity_detail(activity: dict):
     with col5:
         st.metric("Elevation", f"{activity.get('elevationGain', 0):.0f} m")
 
+    # Weather info
+    if weather_data:
+        temp = weather_data.get("temp")
+        humidity = weather_data.get("relativeHumidity")
+        wind_speed = weather_data.get("windSpeed")
+        weather_desc = weather_data.get("weatherTypeDTO", {}).get("desc", "")
+
+        weather_parts = []
+        if temp is not None:
+            weather_parts.append(f"🌡️ {temp}°C")
+        if humidity is not None:
+            weather_parts.append(f"💧 {humidity}%")
+        if wind_speed is not None:
+            weather_parts.append(f"💨 {wind_speed} m/s")
+        if weather_desc:
+            weather_parts.append(f"({weather_desc})")
+
+        if weather_parts:
+            st.caption(f"Weather: {' | '.join(weather_parts)}")
+
     st.divider()
 
-    # Charts
+    # Charts Row 1
     col_left, col_right = st.columns(2)
 
     with col_left:
-        # Heart Rate Zones Chart (simulated based on available data)
-        st.write("**Heart Rate Analysis**")
-        avg_hr = activity.get("averageHR", 0)
-        max_hr = activity.get("maxHR", 0)
+        # Real Heart Rate Zones Chart
+        st.write("**Heart Rate Zones**")
+        if hr_zones_data:
+            zones = []
+            minutes = []
+            for zone in hr_zones_data:
+                zone_num = zone.get("zoneNumber", 0)
+                secs = zone.get("secsInZone", 0)
+                if secs > 0:
+                    zones.append(f"Zone {zone_num}")
+                    minutes.append(round(secs / 60, 1))
 
-        if avg_hr and max_hr:
-            # Estimate HR zones distribution
-            hr_data = pd.DataFrame({
-                "Zone": ["Zone 1 (50-60%)", "Zone 2 (60-70%)", "Zone 3 (70-80%)",
-                        "Zone 4 (80-90%)", "Zone 5 (90-100%)"],
-                "Minutes": [5, 15, 20, 10, 5]  # Simulated distribution
-            })
-
-            fig_hr = px.pie(
-                hr_data,
-                values="Minutes",
-                names="Zone",
-                title="Estimated Time in HR Zones",
-                color_discrete_sequence=px.colors.diverging.RdYlGn[::-1]
-            )
-            fig_hr.update_layout(height=300)
-            st.plotly_chart(fig_hr, use_container_width=True)
+            if zones:
+                hr_df = pd.DataFrame({"Zone": zones, "Minutes": minutes})
+                fig_hr = px.pie(
+                    hr_df,
+                    values="Minutes",
+                    names="Zone",
+                    title="Time in HR Zones",
+                    color_discrete_sequence=px.colors.diverging.RdYlGn[::-1]
+                )
+                fig_hr.update_layout(height=300)
+                st.plotly_chart(fig_hr, use_container_width=True)
+            else:
+                st.info("No HR zone data available.")
         else:
-            st.info("Heart rate data not available for this activity.")
+            st.info("Heart rate zone data not available.")
 
     with col_right:
-        # Pace Chart (simulated splits)
-        st.write("**Pace Analysis**")
-        num_km = int(distance_km) + 1
-        if num_km > 1:
-            import random
-            random.seed(activity.get("activityId", 0))
+        # Real Pace Chart from splits
+        st.write("**Pace per Kilometer**")
+        if splits_data:
+            split_paces = []
+            split_labels = []
+            for i, split in enumerate(splits_data):
+                split_distance = split.get("distance", 0) / 1000
+                split_duration = split.get("duration", 0) / 60
+                if split_distance > 0:
+                    pace = split_duration / split_distance
+                    split_paces.append(pace)
+                    split_labels.append(f"km {i+1}")
 
-            pace_variation = [
-                avg_pace + random.uniform(-0.3, 0.3)
-                for _ in range(num_km)
-            ]
+            if split_paces:
+                pace_df = pd.DataFrame({
+                    "Kilometer": split_labels,
+                    "Pace (min/km)": split_paces
+                })
+                fig_pace = px.bar(
+                    pace_df,
+                    x="Kilometer",
+                    y="Pace (min/km)",
+                    title="Pace per Kilometer",
+                    color="Pace (min/km)",
+                    color_continuous_scale="RdYlGn_r"
+                )
+                fig_pace.update_layout(height=300, showlegend=False)
+                st.plotly_chart(fig_pace, use_container_width=True)
+            else:
+                st.info("No split data available.")
+        else:
+            st.info("Split data not available.")
 
-            pace_df = pd.DataFrame({
-                "Kilometer": [f"km {i+1}" for i in range(num_km)],
-                "Pace (min/km)": pace_variation
+    # Charts Row 2 - HR and Cadence per split
+    if splits_data:
+        col_left2, col_right2 = st.columns(2)
+
+        with col_left2:
+            # HR per split
+            st.write("**Heart Rate per Kilometer**")
+            split_hrs = []
+            split_labels = []
+            for i, split in enumerate(splits_data):
+                hr = split.get("averageHR", 0)
+                if hr > 0:
+                    split_hrs.append(hr)
+                    split_labels.append(f"km {i+1}")
+
+            if split_hrs:
+                hr_split_df = pd.DataFrame({
+                    "Kilometer": split_labels,
+                    "Avg HR (bpm)": split_hrs
+                })
+                fig_hr_split = px.line(
+                    hr_split_df,
+                    x="Kilometer",
+                    y="Avg HR (bpm)",
+                    title="Heart Rate per Kilometer",
+                    markers=True
+                )
+                fig_hr_split.update_layout(height=300)
+                st.plotly_chart(fig_hr_split, use_container_width=True)
+            else:
+                st.info("No HR data per split available.")
+
+        with col_right2:
+            # Cadence per split
+            st.write("**Cadence per Kilometer**")
+            split_cadence = []
+            split_labels = []
+            for i, split in enumerate(splits_data):
+                cadence = split.get("averageRunCadence", 0)
+                if cadence > 0:
+                    split_cadence.append(cadence * 2)  # Garmin stores as steps per 2
+                    split_labels.append(f"km {i+1}")
+
+            if split_cadence:
+                cadence_df = pd.DataFrame({
+                    "Kilometer": split_labels,
+                    "Cadence (spm)": split_cadence
+                })
+                fig_cadence = px.line(
+                    cadence_df,
+                    x="Kilometer",
+                    y="Cadence (spm)",
+                    title="Cadence per Kilometer (steps/min)",
+                    markers=True
+                )
+                fig_cadence.update_layout(height=300)
+                st.plotly_chart(fig_cadence, use_container_width=True)
+            else:
+                st.info("No cadence data available.")
+
+        # Splits Table
+        st.write("**Splits Detail**")
+        table_data = []
+        for i, split in enumerate(splits_data):
+            split_distance = split.get("distance", 0) / 1000
+            split_duration = split.get("duration", 0)
+            pace = (split_duration / 60) / split_distance if split_distance > 0 else 0
+            pace_str = format_pace(pace)
+
+            table_data.append({
+                "Split": f"km {i+1}",
+                "Distance": f"{split_distance:.2f} km",
+                "Time": format_duration(split_duration),
+                "Pace": f"{pace_str}/km",
+                "Avg HR": f"{split.get('averageHR', '-')} bpm" if split.get('averageHR') else "-",
+                "Cadence": f"{int(split.get('averageRunCadence', 0) * 2)} spm" if split.get('averageRunCadence') else "-",
+                "Elevation": f"+{split.get('elevationGain', 0):.0f}/-{split.get('elevationLoss', 0):.0f} m"
             })
 
-            fig_pace = px.bar(
-                pace_df,
-                x="Kilometer",
-                y="Pace (min/km)",
-                title="Pace per Kilometer",
-                color="Pace (min/km)",
-                color_continuous_scale="RdYlGn_r"
-            )
-            fig_pace.update_layout(height=300, showlegend=False)
-            st.plotly_chart(fig_pace, use_container_width=True)
-        else:
-            st.info("Distance too short for split analysis.")
+        if table_data:
+            st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
 
     st.divider()
 
