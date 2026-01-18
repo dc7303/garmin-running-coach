@@ -148,7 +148,10 @@ class GarminClient:
         Returns:
             List of weekly stat dictionaries
         """
-        activities = self.get_running_activities(limit=100)
+        # Fetch enough activities to cover the requested weeks
+        # Assume max ~7 runs per week
+        limit = max(100, weeks * 7)
+        activities = self.get_running_activities(limit=limit)
         weekly_stats = []
 
         today = datetime.now()
@@ -204,7 +207,10 @@ class GarminClient:
         Returns:
             List of monthly stat dictionaries
         """
-        activities = self.get_running_activities(limit=200)
+        # Fetch enough activities to cover the requested months
+        # Assume max ~30 runs per month
+        limit = max(200, months * 30)
+        activities = self.get_running_activities(limit=limit)
         monthly_stats = []
 
         today = datetime.now()
