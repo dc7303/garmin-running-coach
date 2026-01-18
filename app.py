@@ -766,8 +766,11 @@ def dashboard():
 
         st.divider()
         if st.button("⏻ Quit App", use_container_width=True):
-            st.write("Shutting down...")
-            os._exit(0)
+            import threading
+            st.success("✓ App stopped. You can close this browser tab now.")
+            # Delay exit to allow the success message to render
+            threading.Timer(1.0, lambda: os._exit(0)).start()
+            st.stop()
 
     # Load activities if not cached
     if not st.session_state.activities:
